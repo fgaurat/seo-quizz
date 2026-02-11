@@ -22,10 +22,12 @@ class PublicQuizController extends Controller
             $query->select('id', 'question_id', 'body', 'order');
         }]);
 
-        return view('quiz.player', [
-            'quiz' => $quiz,
-            'projectCss' => $quiz->project?->custom_css ?? '',
-            'quizCss' => $quiz->custom_css ?? '',
-        ]);
+        return response(
+            view('quiz.player', [
+                'quiz' => $quiz,
+                'projectCss' => $quiz->project?->custom_css ?? '',
+                'quizCss' => $quiz->custom_css ?? '',
+            ])
+        )->header('X-Frame-Options', 'ALLOWALL');
     }
 }
