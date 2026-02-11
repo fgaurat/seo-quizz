@@ -6,12 +6,15 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Quiz\SubmitQuizRequest;
 use App\Models\Quiz;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Auth;
 
 class QuizApiController extends Controller
 {
     public function submit(SubmitQuizRequest $request, Quiz $quiz): JsonResponse
     {
-        if (!$quiz->isPublished()) {
+        $isOwner = Auth::check() && Auth::id() === $quiz->user_id;
+
+        if (! $quiz->isPublished() && ! $isOwner) {
             return response()->json(['message' => 'Ce quiz n\'est pas disponible.'], 404);
         }
 

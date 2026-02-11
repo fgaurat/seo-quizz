@@ -9,6 +9,7 @@ if (root) {
     const description = root.dataset.quizDescription ?? '';
     const questions = JSON.parse(root.dataset.quizQuestions!);
     const apiUrl = root.dataset.apiUrl!;
+    const csrfToken = root.dataset.csrfToken!;
     const settings = JSON.parse(root.dataset.settings || '{}');
 
     createRoot(root).render(
@@ -18,6 +19,7 @@ if (root) {
             description={description}
             questions={questions}
             apiUrl={apiUrl}
+            csrfToken={csrfToken}
             settings={settings}
         />
     );

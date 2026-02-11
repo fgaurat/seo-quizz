@@ -3,7 +3,6 @@
 use App\Models\Answer;
 use App\Models\Question;
 use App\Models\Quiz;
-use App\Models\User;
 
 test('published quiz is accessible publicly', function () {
     $quiz = Quiz::factory()->published()->create();
@@ -41,7 +40,7 @@ test('quiz submission via API works correctly', function () {
     Answer::factory()->create(['question_id' => $q2->id]);
     $correct2 = Answer::factory()->correct()->create(['question_id' => $q2->id]);
 
-    $response = $this->postJson("/api/quizzes/{$quiz->uuid}/submit", [
+    $response = $this->postJson("/q/{$quiz->uuid}/submit", [
         'answers' => [
             ['question_id' => $q1->id, 'answer_id' => $correct1->id],
             ['question_id' => $q2->id, 'answer_id' => $correct2->id],
@@ -69,7 +68,7 @@ test('quiz submission with wrong answers scores correctly', function () {
     $correct1 = Answer::factory()->correct()->create(['question_id' => $q1->id]);
     $wrong1 = Answer::factory()->create(['question_id' => $q1->id]);
 
-    $response = $this->postJson("/api/quizzes/{$quiz->uuid}/submit", [
+    $response = $this->postJson("/q/{$quiz->uuid}/submit", [
         'answers' => [
             ['question_id' => $q1->id, 'answer_id' => $wrong1->id],
         ],
@@ -87,7 +86,7 @@ test('submit to draft quiz returns 404', function () {
     $question = Question::factory()->create(['quiz_id' => $quiz->id]);
     $answer = Answer::factory()->correct()->create(['question_id' => $question->id]);
 
-    $this->postJson("/api/quizzes/{$quiz->uuid}/submit", [
+    $this->postJson("/q/{$quiz->uuid}/submit", [
         'answers' => [
             ['question_id' => $question->id, 'answer_id' => $answer->id],
         ],
@@ -95,7 +94,7 @@ test('submit to draft quiz returns 404', function () {
 });
 
 test('embed script is accessible', function () {
-    $this->get('/embed.js')
+    $this->get('/quiz-widget.js')
         ->assertOk()
         ->assertHeader('Content-Type', 'application/javascript');
 });

@@ -4,6 +4,7 @@ import VideoEmbed from './video-embed';
 type MediaItem = {
     url: string;
     type: 'image' | 'video';
+    caption?: string | null;
 };
 
 type QuestionProps = {
@@ -22,12 +23,15 @@ export default function QuestionDisplay({ question, selectedAnswerId, onSelectAn
         <div className="quiz-question">
             <h2 className="quiz-question-text">{question.body}</h2>
             {question.media?.map((m, index) => (
-                <div key={index}>
+                <div key={index} className="quiz-media-item">
                     {m.type === 'image' && (
-                        <img src={m.url} alt="" className="quiz-question-image" />
+                        <img src={m.url} alt={m.caption ?? ''} className="quiz-question-image" />
                     )}
                     {m.type === 'video' && (
                         <VideoEmbed url={m.url} />
+                    )}
+                    {m.caption && (
+                        <p className="quiz-media-caption">{m.caption}</p>
                     )}
                 </div>
             ))}

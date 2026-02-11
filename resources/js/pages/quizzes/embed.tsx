@@ -1,8 +1,8 @@
 import { Head } from '@inertiajs/react';
 import { Copy, Check } from 'lucide-react';
 import { useState } from 'react';
-import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
+import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem, Quiz } from '@/types';
 
 export default function QuizzesEmbed({ quiz }: { quiz: Quiz }) {
@@ -18,7 +18,7 @@ export default function QuizzesEmbed({ quiz }: { quiz: Quiz }) {
     const appUrl = window.location.origin;
 
     const inlineSnippet = `<div id="quiz-${quiz.uuid}"></div>
-<script src="${appUrl}/embed.js"></script>
+<script src="${appUrl}/quiz-widget.js"></script>
 <script>
   new QuizEmbed({
     quizId: '${quiz.uuid}',
@@ -27,7 +27,7 @@ export default function QuizzesEmbed({ quiz }: { quiz: Quiz }) {
   });
 </script>`;
 
-    const modalSnippet = `<script src="${appUrl}/embed.js"></script>
+    const modalSnippet = `<script src="${appUrl}/quiz-widget.js"></script>
 <script>
   new QuizEmbed({
     quizId: '${quiz.uuid}',

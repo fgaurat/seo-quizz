@@ -4,6 +4,7 @@ export type MediaType = 'image' | 'video';
 export type QuestionMedia = {
     url: string;
     type: MediaType;
+    caption?: string | null;
 };
 
 export type QuizSettings = {
@@ -36,15 +37,33 @@ export type Question = {
     updated_at: string;
 };
 
+export type Project = {
+    id: number;
+    uuid: string;
+    user_id: number;
+    name: string;
+    slug: string;
+    url: string | null;
+    description: string | null;
+    custom_css?: string | null;
+    quizzes_count?: number;
+    quiz_attempts_count?: number;
+    created_at: string;
+    updated_at: string;
+};
+
 export type Quiz = {
     id: number;
     uuid: string;
     user_id: number;
+    project_id?: number | null;
+    project?: Project | null;
     title: string;
     slug: string;
     description: string | null;
     status: QuizStatus;
     settings: QuizSettings | null;
+    custom_css?: string | null;
     questions: Question[];
     questions_count?: number;
     quiz_attempts_count?: number;

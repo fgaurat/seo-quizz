@@ -11,7 +11,7 @@ class QuestionFactory extends Factory
     {
         return [
             'quiz_id' => Quiz::factory(),
-            'body' => fake()->sentence() . '?',
+            'body' => fake()->sentence().'?',
             'media' => null,
             'order' => 0,
         ];
@@ -31,7 +31,7 @@ class QuestionFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'media' => collect(range(1, $count))->map(fn () => [
-                'url' => 'https://www.youtube.com/watch?v=' . fake()->regexify('[A-Za-z0-9]{11}'),
+                'url' => 'https://www.youtube.com/watch?v='.fake()->regexify('[A-Za-z0-9]{11}'),
                 'type' => 'video',
             ])->all(),
         ]);

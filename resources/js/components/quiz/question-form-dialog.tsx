@@ -10,6 +10,7 @@ import type { MediaType, Question } from '@/types';
 type MediaForm = {
     url: string;
     type: MediaType;
+    caption: string;
 };
 
 type AnswerForm = {
@@ -31,26 +32,30 @@ export default function QuestionFormDialog({
     quizUuid: string;
     question: Question | null;
 }) {
-    const { data, setData, post, put, processing, errors, reset } = useForm<{
-        body: string;
-        media: MediaForm[];
-        order: number;
-        answers: AnswerForm[];
-    }>({
+    const initialData = {
         body: '',
-        media: [],
+        media: [] as MediaForm[],
         order: 0,
         answers: [
             { body: '', is_correct: true, explanation: '', order: 1 },
             { body: '', is_correct: false, explanation: '', order: 2 },
-        ],
-    });
+        ] as AnswerForm[],
+    };
+
+    const { data, setData, post, put, processing, errors, clearErrors } = useForm<{
+        body: string;
+        media: MediaForm[];
+        order: number;
+        answers: AnswerForm[];
+    }>(initialData);
 
     useEffect(() => {
+        if (!open) return;
+
         if (question) {
             setData({
                 body: question.body,
-                media: question.media?.map((m) => ({ url: m.url, type: m.type })) ?? [],
+                media: question.media?.map((m) => ({ url: m.url, type: m.type, caption: m.caption ?? '' })) ?? [],
                 order: question.order,
                 answers: question.answers.map((a) => ({
                     id: a.id,
@@ -61,12 +66,21 @@ export default function QuestionFormDialog({
                 })),
             });
         } else {
-            reset();
+            setData({
+                body: '',
+                media: [],
+                order: 0,
+                answers: [
+                    { body: '', is_correct: true, explanation: '', order: 1 },
+                    { body: '', is_correct: false, explanation: '', order: 2 },
+                ],
+            });
         }
+        clearErrors();
     }, [question, open]);
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSubmit = (e?: React.FormEvent) => {
+        e?.preventDefault();
         if (question) {
             put(`/quizzes/${quizUuid}/questions/${question.id}`, {
                 onSuccess: () => onOpenChange(false),
@@ -120,30 +134,45 @@ export default function QuestionFormDialog({
                         <div className="flex items-center justify-between">
                             <Label>Médias</Label>
                             <div className="flex gap-2">
-                                <Button type="button" variant="outline" size="sm" onClick={() => setData('media', [...data.media, { url: '', type: 'image' }])}>
+                                <Button type="button" variant="outline" size="sm" onClick={() => setData('media', [...data.media, { url: '', type: 'image', caption: '' }])}>
                                     <Plus className="mr-1 h-3 w-3" /> Image
                                 </Button>
-                                <Button type="button" variant="outline" size="sm" onClick={() => setData('media', [...data.media, { url: '', type: 'video' }])}>
+                                <Button type="button" variant="outline" size="sm" onClick={() => setData('media', [...data.media, { url: '', type: 'video', caption: '' }])}>
                                     <Plus className="mr-1 h-3 w-3" /> Vidéo
                                 </Button>
                             </div>
                         </div>
                         {data.media.map((m, index) => (
-                            <div key={index} className="flex items-center gap-2">
-                                <span className="bg-muted shrink-0 rounded px-2 py-1 text-xs font-medium">{m.type === 'image' ? 'Image' : 'Vidéo'}</span>
+                            <div key={index} className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                    <span className="bg-muted shrink-0 rounded px-2 py-1 text-xs font-medium">{m.type === 'image' ? 'Image' : 'Vidéo'}</span>
+                                    <Input
+                                        value={m.url}
+                                        onChange={(e) => {
+                                            const updated = [...data.media];
+                                            updated[index] = { ...updated[index], url: e.target.value };
+                                            setData('media', updated);
+                                        }}
+                                        placeholder="https://..."
+                                        className="flex-1"
+                                    />
+                                    <Button type="button" variant="ghost" size="icon" onClick={() => setData('media', data.media.filter((_, i) => i !== index))}>
+                                        <Trash2 className="h-4 w-4 text-red-500" />
+                                    </Button>
+                                </div>
+                                {errors[`media.${index}.url` as keyof typeof errors] && (
+                                    <p className="text-sm text-red-500">{errors[`media.${index}.url` as keyof typeof errors]}</p>
+                                )}
                                 <Input
-                                    value={m.url}
+                                    value={m.caption}
                                     onChange={(e) => {
                                         const updated = [...data.media];
-                                        updated[index] = { ...updated[index], url: e.target.value };
+                                        updated[index] = { ...updated[index], caption: e.target.value };
                                         setData('media', updated);
                                     }}
-                                    placeholder="https://..."
-                                    className="flex-1"
+                                    placeholder="Légende (optionnel)"
+                                    className="text-sm"
                                 />
-                                <Button type="button" variant="ghost" size="icon" onClick={() => setData('media', data.media.filter((_, i) => i !== index))}>
-                                    <Trash2 className="h-4 w-4 text-red-500" />
-                                </Button>
                             </div>
                         ))}
                         {errors.media && <p className="text-sm text-red-500">{errors.media}</p>}
@@ -181,6 +210,9 @@ export default function QuestionFormDialog({
                                         </Button>
                                     )}
                                 </div>
+                                {errors[`answers.${index}.body` as keyof typeof errors] && (
+                                    <p className="text-sm text-red-500">{errors[`answers.${index}.body` as keyof typeof errors]}</p>
+                                )}
                                 <Input
                                     value={answer.explanation}
                                     onChange={(e) => updateAnswer(index, 'explanation', e.target.value)}
@@ -195,7 +227,7 @@ export default function QuestionFormDialog({
                         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                             Annuler
                         </Button>
-                        <Button type="submit" disabled={processing}>
+                        <Button type="button" onClick={() => handleSubmit()} disabled={processing}>
                             {question ? 'Mettre à jour' : 'Ajouter'}
                         </Button>
                     </div>

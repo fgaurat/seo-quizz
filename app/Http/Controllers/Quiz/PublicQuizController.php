@@ -14,16 +14,18 @@ class PublicQuizController extends Controller
     {
         $isOwner = Auth::check() && Auth::id() === $quiz->user_id;
 
-        if (!$quiz->isPublished() && !$isOwner) {
+        if (! $quiz->isPublished() && ! $isOwner) {
             abort(404);
         }
 
-        $quiz->load(['questions.answers' => function ($query) {
+        $quiz->load(['project', 'questions.answers' => function ($query) {
             $query->select('id', 'question_id', 'body', 'order');
         }]);
 
         return view('quiz.player', [
             'quiz' => $quiz,
+            'projectCss' => $quiz->project?->custom_css ?? '',
+            'quizCss' => $quiz->custom_css ?? '',
         ]);
     }
 }

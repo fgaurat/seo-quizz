@@ -6,6 +6,12 @@
     <title>{{ $quiz->title }}</title>
     @viteReactRefresh
     @vite(['resources/css/quiz-player.css', 'resources/js/quiz-player.tsx'])
+    @if($projectCss)
+        <style id="project-css">{!! $projectCss !!}</style>
+    @endif
+    @if($quizCss)
+        <style id="quiz-css">{!! $quizCss !!}</style>
+    @endif
 </head>
 <body>
     <div
@@ -28,7 +34,8 @@
                 }),
             ];
         })) }}"
-        data-api-url="{{ url('/api/quizzes/' . $quiz->uuid . '/submit') }}"
+        data-api-url="{{ route('quiz.public.submit', $quiz) }}"
+        data-csrf-token="{{ csrf_token() }}"
         data-settings="{{ json_encode($quiz->settings ?? new \stdClass()) }}"
     >Chargement du quiz...</div>
 </body>

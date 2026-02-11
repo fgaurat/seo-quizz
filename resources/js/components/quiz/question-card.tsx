@@ -24,6 +24,13 @@ export default function QuestionCard({ question, onEdit, onDelete }: { question:
                         )}
                     </div>
                     <p className="font-medium">{question.body}</p>
+                    {question.media?.some((m) => m.caption) && (
+                        <div className="mt-1 space-y-0.5">
+                            {question.media.filter((m) => m.caption).map((m, i) => (
+                                <p key={i} className="text-muted-foreground text-xs italic">{m.caption}</p>
+                            ))}
+                        </div>
+                    )}
                 </div>
                 <div className="flex gap-1">
                     <Button variant="ghost" size="icon" onClick={onEdit}>

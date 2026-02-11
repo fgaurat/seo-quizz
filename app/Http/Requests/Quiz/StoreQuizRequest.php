@@ -18,6 +18,8 @@ class StoreQuizRequest extends FormRequest
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'status' => ['required', Rule::in(['draft', 'published', 'archived'])],
+            'project_id' => ['nullable', 'integer', Rule::exists('projects', 'id')],
+            'custom_css' => ['nullable', 'string', 'max:50000'],
             'settings' => ['nullable', 'array'],
             'settings.show_results' => ['nullable', 'boolean'],
             'settings.randomize_questions' => ['nullable', 'boolean'],

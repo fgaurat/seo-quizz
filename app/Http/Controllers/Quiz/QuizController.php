@@ -17,6 +17,7 @@ class QuizController extends Controller
     public function index(): Response
     {
         $quizzes = Auth::user()->quizzes()
+            ->with('project:id,uuid,name')
             ->withCount(['questions', 'quizAttempts'])
             ->latest()
             ->paginate(10);
@@ -28,7 +29,11 @@ class QuizController extends Controller
 
     public function create(): Response
     {
-        return Inertia::render('quizzes/create');
+        $projects = Auth::user()->projects()->orderBy('name')->get(['id', 'uuid', 'name']);
+
+        return Inertia::render('quizzes/create', [
+            'projects' => $projects,
+        ]);
     }
 
     public function store(StoreQuizRequest $request): RedirectResponse
@@ -43,10 +48,13 @@ class QuizController extends Controller
     {
         Gate::authorize('update', $quiz);
 
-        $quiz->load(['questions.answers']);
+        $quiz->load(['questions.answers', 'project']);
+
+        $projects = Auth::user()->projects()->orderBy('name')->get(['id', 'uuid', 'name']);
 
         return Inertia::render('quizzes/edit', [
             'quiz' => $quiz,
+            'projects' => $projects,
         ]);
     }
 

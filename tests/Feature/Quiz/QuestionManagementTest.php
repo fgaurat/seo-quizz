@@ -1,7 +1,7 @@
 <?php
 
-use App\Models\Quiz;
 use App\Models\Question;
+use App\Models\Quiz;
 use App\Models\User;
 
 test('user can add a question to their quiz', function () {

@@ -7,7 +7,7 @@ import ResultsDisplay from './results-display';
 type PlayerQuestion = {
     id: number;
     body: string;
-    media: { url: string; type: 'image' | 'video' }[] | null;
+    media: { url: string; type: 'image' | 'video'; caption?: string | null }[] | null;
     order: number;
     answers: { id: number; body: string; order: number }[];
 };
@@ -18,12 +18,13 @@ type QuizPlayerProps = {
     description: string;
     questions: PlayerQuestion[];
     apiUrl: string;
+    csrfToken: string;
     settings: Record<string, unknown>;
 };
 
 type Step = 'start' | 'playing' | 'results';
 
-export default function QuizPlayer({ quizId, title, description, questions, apiUrl, settings }: QuizPlayerProps) {
+export default function QuizPlayer({ quizId, title, description, questions, apiUrl, csrfToken }: QuizPlayerProps) {
     const [step, setStep] = useState<Step>('start');
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
     const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({});
@@ -70,7 +71,7 @@ export default function QuizPlayer({ quizId, title, description, questions, apiU
 
             const response = await fetch(apiUrl, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-TOKEN': csrfToken },
                 body: JSON.stringify(payload),
             });
 

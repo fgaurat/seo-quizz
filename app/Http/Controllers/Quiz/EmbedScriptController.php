@@ -11,7 +11,7 @@ class EmbedScriptController extends Controller
     {
         $host = config('app.url');
 
-        $js = file_get_contents(public_path('js/quiz-embed.js'));
+        $js = file_get_contents(public_path('js/quiz-widget.js'));
         $js = str_replace('__QUIZ_HOST__', $host, $js);
 
         return response($js, 200, [

@@ -18,7 +18,7 @@ test('quiz generates slug on creation', function () {
 });
 
 test('quiz uses uuid as route key', function () {
-    $quiz = new Quiz();
+    $quiz = new Quiz;
 
     expect($quiz->getRouteKeyName())->toBe('uuid');
 });

@@ -1,20 +1,25 @@
 import { Head, useForm } from '@inertiajs/react';
-import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { BreadcrumbItem, QuizStatus } from '@/types';
+import AppLayout from '@/layouts/app-layout';
+import type { BreadcrumbItem, Project, QuizStatus } from '@/types';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Quizzes', href: '/quizzes' },
     { title: 'Créer', href: '/quizzes/create' },
 ];
 
-export default function QuizzesCreate() {
+export default function QuizzesCreate({ projects }: { projects: Pick<Project, 'id' | 'uuid' | 'name'>[] }) {
+    const params = new URLSearchParams(window.location.search);
+    const preselectedProject = params.get('project');
+    const matchedProject = preselectedProject ? projects.find((p) => p.uuid === preselectedProject) : null;
+
     const { data, setData, post, processing, errors } = useForm({
         title: '',
         description: '',
         status: 'draft' as QuizStatus,
+        project_id: matchedProject?.id ?? ('' as number | ''),
         settings: {
             show_results: true,
             randomize_questions: false,
@@ -56,6 +61,24 @@ export default function QuizzesCreate() {
                             placeholder="Description du quiz..."
                         />
                         {errors.description && <p className="text-sm text-red-500">{errors.description}</p>}
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="project_id">Projet (optionnel)</Label>
+                        <select
+                            id="project_id"
+                            className="border-input bg-background ring-offset-background focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                            value={data.project_id}
+                            onChange={(e) => setData('project_id', e.target.value ? Number(e.target.value) : '')}
+                        >
+                            <option value="">Aucun projet</option>
+                            {projects.map((project) => (
+                                <option key={project.id} value={project.id}>
+                                    {project.name}
+                                </option>
+                            ))}
+                        </select>
+                        {errors.project_id && <p className="text-sm text-red-500">{errors.project_id}</p>}
                     </div>
 
                     <div className="space-y-2">

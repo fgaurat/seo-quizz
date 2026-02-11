@@ -1,8 +1,8 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { FileQuestion, Plus, Code, BarChart3, Pencil, Trash2 } from 'lucide-react';
-import AppLayout from '@/layouts/app-layout';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem, PaginatedData, Quiz } from '@/types';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -58,6 +58,7 @@ export default function QuizzesIndex({ quizzes }: { quizzes: PaginatedData<Quiz>
                                 <thead>
                                     <tr className="border-b text-left">
                                         <th className="p-4 font-medium">Titre</th>
+                                        <th className="p-4 font-medium">Projet</th>
                                         <th className="p-4 font-medium">Statut</th>
                                         <th className="p-4 font-medium">Questions</th>
                                         <th className="p-4 font-medium">Tentatives</th>
@@ -68,6 +69,15 @@ export default function QuizzesIndex({ quizzes }: { quizzes: PaginatedData<Quiz>
                                     {quizzes.data.map((quiz) => (
                                         <tr key={quiz.id} className="border-b last:border-0">
                                             <td className="p-4 font-medium">{quiz.title}</td>
+                                            <td className="p-4">
+                                                {quiz.project ? (
+                                                    <Link href={`/projects/${quiz.project.uuid}`} className="text-sm hover:underline">
+                                                        {quiz.project.name}
+                                                    </Link>
+                                                ) : (
+                                                    <span className="text-muted-foreground text-sm">—</span>
+                                                )}
+                                            </td>
                                             <td className="p-4">
                                                 <Badge variant={statusVariant(quiz.status)}>{quiz.status}</Badge>
                                             </td>

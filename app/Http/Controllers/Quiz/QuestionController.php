@@ -53,7 +53,7 @@ class QuestionController extends Controller
             $existingIds = [];
 
             foreach ($answers as $index => $answerData) {
-                if (!empty($answerData['id'])) {
+                if (! empty($answerData['id'])) {
                     $answer = Answer::find($answerData['id']);
                     if ($answer && $answer->question_id === $question->id) {
                         $answer->update([

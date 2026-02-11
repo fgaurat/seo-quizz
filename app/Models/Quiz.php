@@ -13,11 +13,13 @@ class Quiz extends Model
     use HasFactory;
 
     protected $fillable = [
+        'project_id',
         'title',
         'slug',
         'description',
         'status',
         'settings',
+        'custom_css',
     ];
 
     protected function casts(): array
@@ -37,7 +39,7 @@ class Quiz extends Model
         static::creating(function (Quiz $quiz) {
             $quiz->uuid = (string) Str::uuid();
             if (empty($quiz->slug)) {
-                $quiz->slug = Str::slug($quiz->title) . '-' . Str::random(6);
+                $quiz->slug = Str::slug($quiz->title).'-'.Str::random(6);
             }
         });
     }
@@ -45,6 +47,11 @@ class Quiz extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function project(): BelongsTo
+    {
+        return $this->belongsTo(Project::class);
     }
 
     public function questions(): HasMany

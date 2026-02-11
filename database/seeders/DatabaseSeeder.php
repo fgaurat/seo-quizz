@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Answer;
+use App\Models\Project;
 use App\Models\Question;
 use App\Models\Quiz;
 use App\Models\User;
@@ -18,10 +19,59 @@ class DatabaseSeeder extends Seeder
             'password' => bcrypt('12345'),
         ]);
 
+        $project = Project::create([
+            'user_id' => $user->id,
+            'name' => 'Mon Site SEO',
+            'url' => 'https://www.monsiteseo.fr',
+            'description' => 'Projet regroupant les quiz SEO de mon site principal.',
+            'custom_css' => <<<'CSS'
+.quiz-card {
+    background: #1a1a2e;
+    color: #e0e0e0;
+    border-radius: 12px;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+}
+.quiz-title {
+    color: #e94560;
+}
+.quiz-btn-primary {
+    background: #0f3460;
+    border: none;
+    border-radius: 8px;
+}
+.quiz-btn-primary:hover {
+    background: #16213e;
+}
+.quiz-answer {
+    border-color: #0f3460;
+}
+.quiz-answer:hover {
+    background: #16213e;
+}
+.quiz-progress-fill {
+    background: #e94560;
+}
+CSS,
+        ]);
+
         $quiz = Quiz::factory()->published()->create([
             'user_id' => $user->id,
+            'project_id' => $project->id,
             'title' => 'Quiz SEO Fondamentaux',
             'description' => 'Testez vos connaissances en SEO avec ce quiz de 5 questions.',
+            'custom_css' => <<<'CSS'
+.quiz-btn-primary {
+    background: #e94560;
+    border-radius: 20px;
+}
+.quiz-btn-primary:hover {
+    background: #c81e45;
+}
+.quiz-answer-selected {
+    border-color: #e94560;
+    background: rgba(233, 69, 96, 0.15);
+}
+CSS,
         ]);
 
         $questions = [
