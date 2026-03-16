@@ -28,6 +28,14 @@ type QuestionStartedQuestion = {
     answers: { id: number; body: string; order: number }[];
 };
 
+function getEmbedUrl(url: string): string | null {
+    const youtubeMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+    if (youtubeMatch) return `https://www.youtube.com/embed/${youtubeMatch[1]}`;
+    const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
+    if (vimeoMatch) return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
+    return null;
+}
+
 const ANSWER_COLORS = [
     { bg: 'bg-red-500', hover: 'hover:bg-red-600', border: 'border-red-600', text: 'text-white', label: 'A' },
     { bg: 'bg-blue-500', hover: 'hover:bg-blue-600', border: 'border-blue-600', text: 'text-white', label: 'B' },
@@ -325,6 +333,28 @@ export default function Host({ gameSession, currentQuestion: initialQuestion, le
                                     <p className="text-center text-3xl font-extrabold leading-snug tracking-tight lg:text-4xl">
                                         {activeQuestion.body}
                                     </p>
+
+                                    {/* Question media */}
+                                    {activeQuestion.media && activeQuestion.media.length > 0 && (
+                                        <div className="mt-4 flex justify-center gap-4">
+                                            {activeQuestion.media.map((m, i) => (
+                                                <div key={i} className="max-w-md">
+                                                    {m.type === 'image' && (
+                                                        <img src={m.url} alt={m.caption ?? ''} className="w-full rounded-xl shadow" />
+                                                    )}
+                                                    {m.type === 'video' && (() => {
+                                                        const embedUrl = getEmbedUrl(m.url);
+                                                        return embedUrl ? (
+                                                            <div className="relative w-full overflow-hidden rounded-xl shadow" style={{ paddingBottom: '56.25%' }}>
+                                                                <iframe src={embedUrl} className="absolute inset-0 h-full w-full" allowFullScreen allow="autoplay; encrypted-media" />
+                                                            </div>
+                                                        ) : null;
+                                                    })()}
+                                                    {m.caption && <p className="text-muted-foreground text-xs text-center mt-1">{m.caption}</p>}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
 
                                     {/* Answer count indicator */}
                                     <div className="mt-4 flex items-center justify-center gap-2">

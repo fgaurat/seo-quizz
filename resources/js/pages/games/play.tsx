@@ -23,10 +23,16 @@ type Phase =
     | 'reviewing'
     | 'completed';
 
+type MediaItem = {
+    url: string;
+    type: 'image' | 'video';
+    caption?: string | null;
+};
+
 type QuestionData = {
     id: number;
     body: string;
-    media: unknown[] | null;
+    media: MediaItem[] | null;
     answers: { id: number; body: string; order: number }[];
 };
 
@@ -44,6 +50,50 @@ const ANSWER_COLORS = [
 ] as const;
 
 const ANSWER_SHAPES = ['▲', '◆', '●', '■'] as const;
+
+function getEmbedUrl(url: string): string | null {
+    const youtubeMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+    if (youtubeMatch) return `https://www.youtube.com/embed/${youtubeMatch[1]}`;
+    const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
+    if (vimeoMatch) return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
+    return null;
+}
+
+function QuestionMedia({ media }: { media: MediaItem[] | null }) {
+    if (!media || media.length === 0) return null;
+
+    return (
+        <div className="px-4 pb-2 flex flex-col items-center gap-2">
+            {media.map((m, i) => (
+                <div key={i} className="w-full max-w-sm">
+                    {m.type === 'image' && (
+                        <img
+                            src={m.url}
+                            alt={m.caption ?? ''}
+                            className="w-full rounded-xl shadow-lg"
+                        />
+                    )}
+                    {m.type === 'video' && (() => {
+                        const embedUrl = getEmbedUrl(m.url);
+                        return embedUrl ? (
+                            <div className="relative w-full overflow-hidden rounded-xl shadow-lg" style={{ paddingBottom: '56.25%' }}>
+                                <iframe
+                                    src={embedUrl}
+                                    className="absolute inset-0 h-full w-full"
+                                    allowFullScreen
+                                    allow="autoplay; encrypted-media"
+                                />
+                            </div>
+                        ) : null;
+                    })()}
+                    {m.caption && (
+                        <p className="text-white/70 text-xs text-center mt-1">{m.caption}</p>
+                    )}
+                </div>
+            ))}
+        </div>
+    );
+}
 
 function SpinnerIcon({ className }: { className?: string }) {
     return (
@@ -411,6 +461,8 @@ export default function Play({ gameSession, player, currentQuestion: initialQues
                                 {question.body}
                             </p>
                         </div>
+
+                        <QuestionMedia media={question.media} />
 
                         {/* Answer buttons grid */}
                         <div className="flex-1 grid grid-cols-2 gap-3 p-4 pb-6">
