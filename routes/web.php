@@ -16,6 +16,10 @@ Route::get('/', function () {
 
 Route::get('dashboard', DashboardController::class)->middleware(['auth', 'verified'])->name('dashboard');
 
+Route::get('guide', function () {
+    return Inertia::render('guide');
+})->middleware(['auth', 'verified'])->name('guide');
+
 Route::get('/q/{quiz:uuid}', [PublicQuizController::class, 'show'])->name('quiz.public.show');
 Route::post('/q/{quiz:uuid}/submit', [QuizApiController::class, 'submit'])->name('quiz.public.submit');
 Route::get('/quiz-widget.js', EmbedScriptController::class)->name('embed.script');
