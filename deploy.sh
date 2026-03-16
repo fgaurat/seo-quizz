@@ -139,6 +139,9 @@ else
         echo "[remote] Redémarrage Reverb WebSocket..."
         systemctl restart quizzes-reverb.service 2>/dev/null || echo "[remote] Service Reverb non configuré — ignoré"
 
+        echo "[remote] Redémarrage Queue Worker..."
+        systemctl restart quizzes-queue.service 2>/dev/null || echo "[remote] Service Queue non configuré — ignoré"
+
         echo "[remote] Terminé."
 REMOTE_SCRIPT
 
