@@ -175,10 +175,11 @@ export default function QuizzesEdit({ quiz, projects }: { quiz: Quiz; projects: 
                         </Button>
                     </div>
 
-                    {quiz.questions?.map((question) => (
+                    {quiz.questions?.map((question, index) => (
                         <QuestionCard
                             key={question.id}
                             question={question}
+                            index={index}
                             onEdit={() => { setEditingQuestion(question); setShowQuestionDialog(true); }}
                             onDelete={() => handleDeleteQuestion(question.id)}
                         />
