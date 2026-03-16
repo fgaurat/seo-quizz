@@ -1,5 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { FileQuestion, Plus, Code, BarChart3, Pencil, Trash2 } from 'lucide-react';
+import { FileQuestion, Plus, Code, BarChart3, Pencil, Radio, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
@@ -19,6 +19,10 @@ const statusVariant = (status: string) => {
 };
 
 export default function QuizzesIndex({ quizzes }: { quizzes: PaginatedData<Quiz> }) {
+    const handleLaunchLive = (quiz: Quiz) => {
+        router.post('/games', { quiz_id: quiz.id });
+    };
+
     const handleDelete = (quiz: Quiz) => {
         if (confirm('Êtes-vous sûr de vouloir supprimer ce quiz ?')) {
             router.delete(`/quizzes/${quiz.uuid}`);
@@ -90,6 +94,16 @@ export default function QuizzesIndex({ quizzes }: { quizzes: PaginatedData<Quiz>
                                                             <Pencil className="h-4 w-4" />
                                                         </Link>
                                                     </Button>
+                                                    {quiz.status === 'published' && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            onClick={() => handleLaunchLive(quiz)}
+                                                            title="Lancer un live"
+                                                        >
+                                                            <Radio className="h-4 w-4" />
+                                                        </Button>
+                                                    )}
                                                     <Button variant="ghost" size="icon" asChild>
                                                         <Link href={`/quizzes/${quiz.uuid}/embed`}>
                                                             <Code className="h-4 w-4" />

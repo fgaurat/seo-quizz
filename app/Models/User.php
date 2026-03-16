@@ -60,4 +60,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(Project::class);
     }
+
+    public function gameSessions(): HasMany
+    {
+        return $this->hasMany(GameSession::class, 'host_user_id');
+    }
 }

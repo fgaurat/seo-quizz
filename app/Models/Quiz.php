@@ -64,6 +64,11 @@ class Quiz extends Model
         return $this->hasMany(QuizAttempt::class);
     }
 
+    public function gameSessions(): HasMany
+    {
+        return $this->hasMany(GameSession::class);
+    }
+
     public function scopePublished($query)
     {
         return $query->where('status', 'published');

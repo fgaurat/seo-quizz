@@ -1,5 +1,5 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import { Eye, Plus } from 'lucide-react';
+import { Eye, Plus, Radio } from 'lucide-react';
 import { useState } from 'react';
 import QuestionCard from '@/components/quiz/question-card';
 import QuestionFormDialog from '@/components/quiz/question-form-dialog';
@@ -49,12 +49,20 @@ export default function QuizzesEdit({ quiz, projects }: { quiz: Quiz; projects: 
             <div className="flex h-full flex-1 flex-col gap-6 rounded-xl p-4">
                 <div className="flex items-center justify-between">
                     <h1 className="text-2xl font-bold">Éditer le quiz</h1>
-                    <Button variant="outline" asChild>
-                        <a href={`/q/${quiz.uuid}`} target="_blank" rel="noopener noreferrer">
-                            <Eye className="mr-2 h-4 w-4" />
-                            Visualiser
-                        </a>
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        {quiz.status === 'published' && (quiz.questions?.length ?? 0) >= 1 && (
+                            <Button onClick={() => router.post('/games', { quiz_id: quiz.id })}>
+                                <Radio className="mr-2 h-4 w-4" />
+                                Lancer un live
+                            </Button>
+                        )}
+                        <Button variant="outline" asChild>
+                            <a href={`/q/${quiz.uuid}`} target="_blank" rel="noopener noreferrer">
+                                <Eye className="mr-2 h-4 w-4" />
+                                Visualiser
+                            </a>
+                        </Button>
+                    </div>
                 </div>
 
                 <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">

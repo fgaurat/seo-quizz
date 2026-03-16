@@ -23,3 +23,4 @@ Route::get('/quiz-widget.js', EmbedScriptController::class)->name('embed.script'
 require __DIR__.'/settings.php';
 require __DIR__.'/projects.php';
 require __DIR__.'/quizzes.php';
+require __DIR__.'/games.php';

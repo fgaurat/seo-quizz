@@ -118,3 +118,65 @@ export type PaginatedData<T> = {
         active: boolean;
     }[];
 };
+
+export type GameSessionStatus = 'waiting' | 'in_progress' | 'reviewing' | 'completed';
+
+export type GamePlayer = {
+    id: number;
+    uuid: string;
+    game_session_id: number;
+    nickname: string;
+    avatar: string | null;
+    score: number;
+    is_connected: boolean;
+    created_at: string;
+    updated_at: string;
+};
+
+export type GameResponse = {
+    id: number;
+    game_session_id: number;
+    game_player_id: number;
+    question_id: number;
+    answer_id: number | null;
+    is_correct: boolean;
+    response_time_ms: number | null;
+    points_earned: number;
+    created_at: string;
+    updated_at: string;
+};
+
+export type GameSession = {
+    id: number;
+    uuid: string;
+    quiz_id: number;
+    host_user_id: number;
+    pin: string;
+    status: GameSessionStatus;
+    current_question_index: number;
+    question_started_at: string | null;
+    time_per_question: number;
+    settings: Record<string, unknown> | null;
+    started_at: string | null;
+    completed_at: string | null;
+    quiz?: Quiz;
+    players?: GamePlayer[];
+    responses?: GameResponse[];
+    created_at: string;
+    updated_at: string;
+};
+
+export type GameState = {
+    status: GameSessionStatus;
+    current_question_index: number;
+    question: {
+        id: number;
+        body: string;
+        media: QuestionMedia[] | null;
+        answers: { id: number; body: string; order: number }[];
+    } | null;
+    time_remaining_ms: number;
+    players_count: number;
+    players_answered_count: number;
+    leaderboard: Pick<GamePlayer, 'uuid' | 'nickname' | 'score'>[];
+};
