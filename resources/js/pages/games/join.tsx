@@ -28,6 +28,13 @@ export default function Join() {
         if (error?.field === 'pin') setError(null);
     }
 
+    function handlePinPaste(e: React.ClipboardEvent<HTMLInputElement>) {
+        e.preventDefault();
+        const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+        setPin(pasted);
+        if (error?.field === 'pin') setError(null);
+    }
+
     function handleNicknameChange(e: React.ChangeEvent<HTMLInputElement>) {
         setNickname(e.target.value.slice(0, 50));
         if (error?.field === 'nickname') setError(null);
@@ -135,8 +142,9 @@ export default function Join() {
                                     type="text"
                                     inputMode="numeric"
                                     pattern="[0-9]*"
-                                    maxLength={6}
+                                    maxLength={7}
                                     placeholder="000000"
+                                    onPaste={handlePinPaste}
                                     value={pin}
                                     onChange={handlePinChange}
                                     autoComplete="off"
