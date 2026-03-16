@@ -405,6 +405,13 @@ export default function Play({ gameSession, player, currentQuestion: initialQues
                             </span>
                         </div>
 
+                        {/* Question text */}
+                        <div className="px-4 pb-3">
+                            <p className="text-white text-center text-lg font-bold leading-snug drop-shadow-md">
+                                {question.body}
+                            </p>
+                        </div>
+
                         {/* Answer buttons grid */}
                         <div className="flex-1 grid grid-cols-2 gap-3 p-4 pb-6">
                             {question.answers.slice(0, 4).map((answer, index) => {
