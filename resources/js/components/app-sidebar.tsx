@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { BookOpen, FileQuestion, Folder, FolderOpen, LayoutGrid, Radio } from 'lucide-react';
+import { BookOpen, FileQuestion, Folder, FolderOpen, LayoutGrid, Radio, Tv2 } from 'lucide-react';
 import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
@@ -33,9 +33,14 @@ const mainNavItems: NavItem[] = [
         icon: FileQuestion,
     },
     {
+        title: 'Parties live',
+        href: '/games',
+        icon: Radio,
+    },
+    {
         title: 'Guide Live',
         href: '/guide',
-        icon: Radio,
+        icon: Tv2,
     },
 ];
 

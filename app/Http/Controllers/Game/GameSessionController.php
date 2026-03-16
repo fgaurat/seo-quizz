@@ -14,6 +14,22 @@ use Inertia\Response;
 class GameSessionController extends Controller
 {
     /**
+     * List all game sessions hosted by the authenticated user.
+     */
+    public function index(): Response
+    {
+        $sessions = GameSession::where('host_user_id', Auth::id())
+            ->with('quiz:id,uuid,title')
+            ->withCount(['players', 'responses'])
+            ->latest()
+            ->paginate(20);
+
+        return Inertia::render('games/index', [
+            'sessions' => $sessions,
+        ]);
+    }
+
+    /**
      * Create a new game session from a quiz and redirect to the lobby.
      */
     public function store(Request $request): RedirectResponse

@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Route;
 
 // Authenticated host routes
 Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/games', [GameSessionController::class, 'index'])->name('games.index');
     Route::post('/games', [GameSessionController::class, 'store'])->name('games.store');
     Route::get('/games/{gameSession}/lobby', [GameSessionController::class, 'lobby'])->name('games.lobby');
     Route::get('/games/{gameSession}/host', [GameSessionController::class, 'host'])->name('games.host');
