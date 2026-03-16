@@ -6,6 +6,7 @@ import echo from '@/echo';
 interface PlayProps {
     gameSession: GameSession;
     player: GamePlayer;
+    currentQuestion?: QuestionData | null;
 }
 
 type AnswerResult = {
@@ -112,7 +113,7 @@ function TimerBar({ timeRemainingMs, totalMs }: { timeRemainingMs: number; total
     );
 }
 
-export default function Play({ gameSession, player }: PlayProps) {
+export default function Play({ gameSession, player, currentQuestion: initialQuestion }: PlayProps) {
     const [phase, setPhase] = useState<Phase>('loading');
     const [question, setQuestion] = useState<QuestionData | null>(null);
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(-1);
@@ -148,6 +149,9 @@ export default function Play({ gameSession, player }: PlayProps) {
             setTimeRemainingMs(remaining);
             setTimePerQuestion(gameSession.time_per_question);
             setCurrentQuestionIndex(gameSession.current_question_index);
+            if (initialQuestion) {
+                setQuestion(initialQuestion);
+            }
             setPhase('playing');
         } else if (gameSession.status === 'completed') {
             setPhase('completed');
@@ -155,12 +159,6 @@ export default function Play({ gameSession, player }: PlayProps) {
             setPhase('waiting');
         }
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-    const getCsrfToken = useCallback(() => {
-        return decodeURIComponent(
-            document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] ?? ''
-        );
-    }, []);
 
     // Subscribe to Echo channel events
     useEffect(() => {
@@ -260,10 +258,10 @@ export default function Play({ gameSession, player }: PlayProps) {
         try {
             const response = await fetch(`/api/game/${gameSession.uuid}/answer`, {
                 method: 'POST',
+                credentials: 'same-origin',
                 headers: {
                     'Content-Type': 'application/json',
                     Accept: 'application/json',
-                    'X-XSRF-TOKEN': getCsrfToken(),
                 },
                 body: JSON.stringify({ answer_id: answerId, player_uuid: uuid }),
             });
@@ -278,9 +276,9 @@ export default function Play({ gameSession, player }: PlayProps) {
                 });
                 setPhase('answered');
             } else {
-                // Server rejected — unselect so player can try again
+                const errorData = await response.json().catch(() => ({}));
                 setSelectedAnswerId(null);
-                setNetworkError('Réponse non envoyée. Réessaie !');
+                setNetworkError(errorData.message ?? `Erreur ${response.status}. Réessaie !`);
             }
         } catch {
             if (isMountedRef.current) {
@@ -292,7 +290,7 @@ export default function Play({ gameSession, player }: PlayProps) {
                 setIsSubmittingAnswer(false);
             }
         }
-    }, [gameSession.uuid, getCsrfToken, isSubmittingAnswer, selectedAnswerId]);
+    }, [gameSession.uuid, isSubmittingAnswer, selectedAnswerId]);
 
     // ── Render helpers ────────────────────────────────────────────────
 
