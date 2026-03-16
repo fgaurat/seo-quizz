@@ -163,4 +163,16 @@ class GameSessionController extends Controller
             'per_question_stats' => $perQuestionStats,
         ]);
     }
+
+    public function destroy(GameSession $gameSession): RedirectResponse
+    {
+        if (Auth::id() !== $gameSession->host_user_id) {
+            abort(403);
+        }
+
+        $gameSession->delete();
+
+        return redirect()->route('games.index')
+            ->with('success', 'Partie supprimée.');
+    }
 }

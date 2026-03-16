@@ -12,6 +12,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/games/{gameSession}/lobby', [GameSessionController::class, 'lobby'])->name('games.lobby');
     Route::get('/games/{gameSession}/host', [GameSessionController::class, 'host'])->name('games.host');
     Route::get('/games/{gameSession}/results', [GameSessionController::class, 'results'])->name('games.results');
+    Route::delete('/games/{gameSession}', [GameSessionController::class, 'destroy'])->name('games.destroy');
 });
 
 // Public player routes (no auth required)

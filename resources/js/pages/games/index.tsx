@@ -1,5 +1,5 @@
-import { Head, Link } from '@inertiajs/react';
-import { Monitor, Play, Radio, Trophy, Users } from 'lucide-react';
+import { Head, Link, router } from '@inertiajs/react';
+import { Monitor, Play, Radio, Trash2, Trophy, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
@@ -145,6 +145,18 @@ export default function GamesIndex({ sessions }: Props) {
                                                                 </Link>
                                                             </Button>
                                                         )}
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            title="Supprimer"
+                                                            onClick={() => {
+                                                                if (confirm('Supprimer cette partie ?')) {
+                                                                    router.delete(`/games/${session.uuid}`);
+                                                                }
+                                                            }}
+                                                        >
+                                                            <Trash2 className="h-4 w-4 text-red-500" />
+                                                        </Button>
                                                     </div>
                                                 </td>
                                             </tr>
