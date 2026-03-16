@@ -1,6 +1,7 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
-import { Play, Users, ArrowLeft, Wifi } from 'lucide-react';
+import { Play, Users, ArrowLeft, Wifi, QrCode } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import echo from '@/echo';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -194,9 +195,16 @@ export default function GamesLobby({ gameSession }: LobbyProps) {
                                 {formatPin(gameSession.pin)}
                             </div>
 
-                            <div className="mt-2 flex flex-col items-center gap-1">
+                            <div className="mt-4 flex flex-col items-center gap-3">
+                                <div className="rounded-xl bg-white p-3 shadow-sm">
+                                    <QRCodeSVG
+                                        value={`${playUrl}?pin=${gameSession.pin}`}
+                                        size={160}
+                                        level="M"
+                                    />
+                                </div>
                                 <p className="text-muted-foreground text-sm">
-                                    Les joueurs rejoignent sur
+                                    Scannez le QR code ou rejoignez sur
                                 </p>
                                 <span className="rounded-md bg-muted px-3 py-1 font-mono text-base font-semibold">
                                     {playUrl}

@@ -11,7 +11,13 @@ interface JoinError {
 }
 
 export default function Join() {
-    const [pin, setPin] = useState('');
+    const [pin, setPin] = useState(() => {
+        if (typeof window !== 'undefined') {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('pin')?.replace(/\D/g, '').slice(0, 6) ?? '';
+        }
+        return '';
+    });
     const [nickname, setNickname] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<JoinError | null>(null);
