@@ -279,6 +279,8 @@ class GameApiController extends Controller
             'status' => 'in_progress',
             'current_question_index' => $nextIndex,
             'is_last' => $nextIsLast,
+            'question' => $nextQuestionData,
+            'time_per_question' => $gameSession->time_per_question,
         ]);
     }
 

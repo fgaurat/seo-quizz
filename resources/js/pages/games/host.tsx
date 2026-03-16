@@ -205,6 +205,17 @@ export default function Host({ gameSession, currentQuestion: initialQuestion, le
                     router.visit(`/games/${gameSession.uuid}/results`);
                     return;
                 }
+                if (data.status === 'in_progress' && data.question) {
+                    setActiveQuestion(data.question);
+                    setCurrentIndex(data.current_question_index);
+                    setTimeRemainingMs(data.time_per_question * 1000);
+                    setIsQuestionPhaseOver(false);
+                    setCorrectAnswerId(null);
+                    setAnswerCounts([]);
+                    setPlayersAnsweredCount(0);
+                    setIsLastQuestion(data.is_last);
+                    setStatus('in_progress');
+                }
             }
         } catch {
             // ignore — the Echo event will update state if the request succeeds server-side
