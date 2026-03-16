@@ -7,8 +7,13 @@ import AppLayout from '@/layouts/app-layout';
 import echo from '@/echo';
 import type { BreadcrumbItem, GameSession, GamePlayer, GameSessionStatus, Question } from '@/types';
 
+interface HostGameSession extends GameSession {
+    total_questions?: number;
+    quiz_title?: string;
+}
+
 interface HostProps {
-    gameSession: GameSession;
+    gameSession: HostGameSession;
     currentQuestion: Question | null;
     leaderboard: GamePlayer[];
 }
@@ -85,7 +90,7 @@ export default function Host({ gameSession, currentQuestion: initialQuestion, le
 
     const [isAdvancing, setIsAdvancing] = useState(false);
 
-    const totalQuestions = gameSession.quiz?.questions?.length ?? 0;
+    const totalQuestions = gameSession.total_questions ?? gameSession.quiz?.questions?.length ?? 0;
     const questionNumber = currentIndex + 1;
 
     const breadcrumbs: BreadcrumbItem[] = [
