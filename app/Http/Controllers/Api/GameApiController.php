@@ -164,9 +164,9 @@ class GameApiController extends Controller
         }
 
         // Check the question has not timed out
-        $elapsedMs = (int) ($gameSession->question_started_at
+        $elapsedMs = max(0, (int) ($gameSession->question_started_at
             ? now()->diffInMilliseconds($gameSession->question_started_at)
-            : 0);
+            : 0));
 
         $timeLimitMs = $gameSession->time_per_question * 1000;
 
@@ -178,7 +178,7 @@ class GameApiController extends Controller
         $pointsEarned = 0;
 
         if ($isCorrect) {
-            $pointsEarned = max(0, (int) round(1000 * (1 - ($elapsedMs / $timeLimitMs))));
+            $pointsEarned = min(1000, max(0, (int) round(1000 * (1 - ($elapsedMs / $timeLimitMs)))));
         }
 
         $gameSession->responses()->create([
