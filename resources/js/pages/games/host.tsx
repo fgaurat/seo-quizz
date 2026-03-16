@@ -94,6 +94,8 @@ export default function Host({ gameSession, currentQuestion: initialQuestion, le
         { title: 'Partie en cours', href: '#' },
     ];
 
+    const hasRedirectedRef = useRef(false);
+
     // Echo channel subscriptions
     useEffect(() => {
         const channel = echo.channel(`game.${gameSession.uuid}`);
@@ -124,6 +126,8 @@ export default function Host({ gameSession, currentQuestion: initialQuestion, le
         });
 
         channel.listen('.game.completed', () => {
+            if (hasRedirectedRef.current) return;
+            hasRedirectedRef.current = true;
             setStatus('completed');
             router.visit(`/games/${gameSession.uuid}/results`);
         });
@@ -182,10 +186,10 @@ export default function Host({ gameSession, currentQuestion: initialQuestion, le
     const correctAnswerIds = correctAnswerIdsFromEvent ?? correctAnswerIdsFromProp;
 
     async function handleNextQuestion() {
-        if (isAdvancing) return;
+        if (isAdvancing || hasRedirectedRef.current) return;
         setIsAdvancing(true);
         try {
-            await fetch(`/api/game/${gameSession.uuid}/next`, {
+            const res = await fetch(`/api/game/${gameSession.uuid}/next`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -193,11 +197,21 @@ export default function Host({ gameSession, currentQuestion: initialQuestion, le
                     'X-CSRF-TOKEN': getCsrfToken(),
                 },
             });
-            // State will be updated via the .question.started or .game.completed Echo event
+            if (res.ok) {
+                const data = await res.json();
+                if (data.status === 'completed' && !hasRedirectedRef.current) {
+                    hasRedirectedRef.current = true;
+                    setStatus('completed');
+                    router.visit(`/games/${gameSession.uuid}/results`);
+                    return;
+                }
+            }
         } catch {
             // ignore — the Echo event will update state if the request succeeds server-side
         } finally {
-            setIsAdvancing(false);
+            if (!hasRedirectedRef.current) {
+                setIsAdvancing(false);
+            }
         }
     }
 
