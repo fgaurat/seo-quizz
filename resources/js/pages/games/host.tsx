@@ -90,6 +90,10 @@ export default function Host({ gameSession, currentQuestion: initialQuestion, le
 
     const [isAdvancing, setIsAdvancing] = useState(false);
 
+    // Auto-advance settings
+    const autoAdvance = (gameSession.settings as Record<string, unknown> | null)?.auto_advance === true;
+    const autoAdvanceDelay = Number((gameSession.settings as Record<string, unknown> | null)?.auto_advance_delay ?? 5) * 1000;
+
     const totalQuestions = gameSession.total_questions ?? gameSession.quiz?.questions?.length ?? 0;
     const questionNumber = currentIndex + 1;
 
@@ -182,6 +186,29 @@ export default function Host({ gameSession, currentQuestion: initialQuestion, le
 
     // Reveal answers when the server confirmed phase-over OR timer ran out locally
     const shouldRevealAnswers = isQuestionPhaseOver || timeRemainingMs <= 0;
+
+    // Auto-advance: after the reveal delay, automatically go to next question
+    const autoAdvanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    useEffect(() => {
+        if (autoAdvanceTimerRef.current) {
+            clearTimeout(autoAdvanceTimerRef.current);
+            autoAdvanceTimerRef.current = null;
+        }
+
+        if (autoAdvance && shouldRevealAnswers && status === 'in_progress' && !isAdvancing && !hasRedirectedRef.current) {
+            autoAdvanceTimerRef.current = setTimeout(() => {
+                handleNextQuestion();
+            }, autoAdvanceDelay);
+        }
+
+        return () => {
+            if (autoAdvanceTimerRef.current) {
+                clearTimeout(autoAdvanceTimerRef.current);
+                autoAdvanceTimerRef.current = null;
+            }
+        };
+    }, [shouldRevealAnswers, autoAdvance, status]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Correct answer IDs: from question.ended event if available, otherwise fall back to the initial prop
     const correctAnswerIdsFromEvent = correctAnswerId !== null ? new Set([correctAnswerId]) : null;

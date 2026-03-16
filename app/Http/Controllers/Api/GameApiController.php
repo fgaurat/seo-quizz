@@ -78,7 +78,7 @@ class GameApiController extends Controller
     /**
      * Host starts the game, transitioning it from 'waiting' to 'in_progress'.
      */
-    public function startGame(GameSession $gameSession): JsonResponse
+    public function startGame(GameSession $gameSession, Request $request): JsonResponse
     {
         if (Auth::id() !== $gameSession->host_user_id) {
             return response()->json(['message' => 'Non autorisé.'], 403);
@@ -88,11 +88,18 @@ class GameApiController extends Controller
             return response()->json(['message' => 'La partie ne peut pas être démarrée dans son état actuel.'], 409);
         }
 
+        $settings = $gameSession->settings ?? [];
+        if ($request->has('auto_advance')) {
+            $settings['auto_advance'] = (bool) $request->input('auto_advance');
+            $settings['auto_advance_delay'] = (int) ($request->input('auto_advance_delay', 5));
+        }
+
         $gameSession->update([
             'status' => 'in_progress',
             'started_at' => now(),
             'current_question_index' => 0,
             'question_started_at' => now(),
+            'settings' => $settings,
         ]);
 
         event(new GameStarted($gameSession->uuid));

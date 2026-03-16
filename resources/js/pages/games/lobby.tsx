@@ -60,6 +60,8 @@ export default function GamesLobby({ gameSession }: LobbyProps) {
     const [newPlayerIds, setNewPlayerIds] = useState<Set<number>>(new Set());
     const [isStarting, setIsStarting] = useState(false);
     const [startError, setStartError] = useState<string | null>(null);
+    const [autoAdvance, setAutoAdvance] = useState(false);
+    const [autoAdvanceDelay, setAutoAdvanceDelay] = useState(5);
 
     const playUrl =
         typeof window !== 'undefined'
@@ -141,6 +143,10 @@ export default function GamesLobby({ gameSession }: LobbyProps) {
                     Accept: 'application/json',
                     'X-CSRF-TOKEN': csrfToken,
                 },
+                body: JSON.stringify({
+                    auto_advance: autoAdvance,
+                    auto_advance_delay: autoAdvanceDelay,
+                }),
             });
 
             if (!response.ok) {
@@ -248,6 +254,52 @@ export default function GamesLobby({ gameSession }: LobbyProps) {
                                             isNew={newPlayerIds.has(player.id)}
                                         />
                                     ))}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    {/* Game settings */}
+                    <Card>
+                        <CardContent className="flex flex-col gap-4 py-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-medium">Passage automatique</p>
+                                    <p className="text-muted-foreground text-xs">
+                                        Passer à la question suivante automatiquement après le timer
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    role="switch"
+                                    aria-checked={autoAdvance}
+                                    onClick={() => setAutoAdvance(!autoAdvance)}
+                                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
+                                        autoAdvance ? 'bg-primary' : 'bg-input'
+                                    }`}
+                                >
+                                    <span
+                                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-background shadow-lg ring-0 transition-transform ${
+                                            autoAdvance ? 'translate-x-5' : 'translate-x-0'
+                                        }`}
+                                    />
+                                </button>
+                            </div>
+                            {autoAdvance && (
+                                <div className="flex items-center gap-3">
+                                    <label htmlFor="delay" className="text-sm text-muted-foreground whitespace-nowrap">
+                                        Délai d'affichage des résultats
+                                    </label>
+                                    <input
+                                        id="delay"
+                                        type="range"
+                                        min={2}
+                                        max={15}
+                                        value={autoAdvanceDelay}
+                                        onChange={(e) => setAutoAdvanceDelay(Number(e.target.value))}
+                                        className="flex-1"
+                                    />
+                                    <span className="text-sm font-semibold tabular-nums w-8 text-right">{autoAdvanceDelay}s</span>
                                 </div>
                             )}
                         </CardContent>

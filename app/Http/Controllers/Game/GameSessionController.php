@@ -109,6 +109,7 @@ class GameSessionController extends Controller
                 'time_per_question' => $gameSession->time_per_question,
                 'question_started_at' => $gameSession->question_started_at?->toISOString(),
                 'quiz_title' => $gameSession->quiz->title,
+                'settings' => $gameSession->settings,
             ],
             'currentQuestion' => $currentQuestion,
             'players' => $gameSession->players,
