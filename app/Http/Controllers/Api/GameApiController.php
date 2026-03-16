@@ -94,12 +94,17 @@ class GameApiController extends Controller
             $settings['auto_advance_delay'] = (int) ($request->input('auto_advance_delay', 5));
         }
 
+        $timePerQuestion = $request->has('time_per_question')
+            ? max(5, min(120, (int) $request->input('time_per_question')))
+            : $gameSession->time_per_question;
+
         $gameSession->update([
             'status' => 'in_progress',
             'started_at' => now(),
             'current_question_index' => 0,
             'question_started_at' => now(),
             'settings' => $settings,
+            'time_per_question' => $timePerQuestion,
         ]);
 
         event(new GameStarted($gameSession->uuid));

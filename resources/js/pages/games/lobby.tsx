@@ -60,6 +60,7 @@ export default function GamesLobby({ gameSession }: LobbyProps) {
     const [newPlayerIds, setNewPlayerIds] = useState<Set<number>>(new Set());
     const [isStarting, setIsStarting] = useState(false);
     const [startError, setStartError] = useState<string | null>(null);
+    const [timePerQuestion, setTimePerQuestion] = useState(gameSession.time_per_question);
     const [autoAdvance, setAutoAdvance] = useState(false);
     const [autoAdvanceDelay, setAutoAdvanceDelay] = useState(5);
 
@@ -144,6 +145,7 @@ export default function GamesLobby({ gameSession }: LobbyProps) {
                     'X-CSRF-TOKEN': csrfToken,
                 },
                 body: JSON.stringify({
+                    time_per_question: timePerQuestion,
                     auto_advance: autoAdvance,
                     auto_advance_delay: autoAdvanceDelay,
                 }),
@@ -262,6 +264,25 @@ export default function GamesLobby({ gameSession }: LobbyProps) {
                     {/* Game settings */}
                     <Card>
                         <CardContent className="flex flex-col gap-4 py-4">
+                            <div className="flex items-center gap-3">
+                                <label htmlFor="time" className="text-sm font-medium whitespace-nowrap">
+                                    Temps par question
+                                </label>
+                                <input
+                                    id="time"
+                                    type="range"
+                                    min={5}
+                                    max={120}
+                                    step={5}
+                                    value={timePerQuestion}
+                                    onChange={(e) => setTimePerQuestion(Number(e.target.value))}
+                                    className="flex-1"
+                                />
+                                <span className="text-sm font-semibold tabular-nums w-10 text-right">{timePerQuestion}s</span>
+                            </div>
+
+                            <div className="border-t" />
+
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-sm font-medium">Passage automatique</p>
