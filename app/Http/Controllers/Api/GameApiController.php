@@ -2,6 +2,12 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\AnswerSubmitted;
+use App\Events\GameCompleted;
+use App\Events\GameStarted;
+use App\Events\PlayerJoinedGame;
+use App\Events\QuestionEnded;
+use App\Events\QuestionStarted;
 use App\Http\Controllers\Controller;
 use App\Models\Answer;
 use App\Models\GameSession;
@@ -53,13 +59,19 @@ class GameApiController extends Controller
 
         session(['player_uuid' => $player->uuid]);
 
+        $playerData = [
+            'uuid' => $player->uuid,
+            'nickname' => $player->nickname,
+            'score' => $player->score,
+        ];
+
+        $playersCount = $gameSession->players()->count();
+
+        event(new PlayerJoinedGame($gameSession->uuid, $playerData, $playersCount));
+
         return response()->json([
             'game_session_uuid' => $gameSession->uuid,
-            'player' => [
-                'uuid' => $player->uuid,
-                'nickname' => $player->nickname,
-                'score' => $player->score,
-            ],
+            'player' => $playerData,
         ]);
     }
 
@@ -82,6 +94,20 @@ class GameApiController extends Controller
             'current_question_index' => 0,
             'question_started_at' => now(),
         ]);
+
+        event(new GameStarted($gameSession->uuid));
+
+        $gameSession->load('quiz');
+        $question = $gameSession->currentQuestion()->load('answers');
+        $questionData = [
+            'id' => $question->id,
+            'body' => $question->body,
+            'media' => $question->media,
+            'answers' => $question->answers->map(fn ($a) => ['id' => $a->id, 'body' => $a->body, 'order' => $a->order])->values()->toArray(),
+        ];
+        $isLast = $gameSession->totalQuestions() <= 1;
+
+        event(new QuestionStarted($gameSession->uuid, 0, $questionData, $gameSession->time_per_question, $isLast));
 
         return response()->json(['status' => 'started']);
     }
@@ -168,6 +194,14 @@ class GameApiController extends Controller
             $player->increment('score', $pointsEarned);
         }
 
+        $playersAnsweredCount = $gameSession->responses()
+            ->where('question_id', $currentQuestion->id)
+            ->count();
+
+        $playersCount = $gameSession->players()->count();
+
+        event(new AnswerSubmitted($gameSession->uuid, $playersAnsweredCount, $playersCount));
+
         return response()->json([
             'is_correct' => $isCorrect,
             'points_earned' => $pointsEarned,
@@ -194,11 +228,29 @@ class GameApiController extends Controller
         $totalQuestions = $gameSession->totalQuestions();
         $isLast = $nextIndex >= $totalQuestions;
 
+        // Capture current question data before advancing the index
+        $gameSession->load('quiz');
+        $currentQuestion = $gameSession->currentQuestion()->load('answers');
+        $correctAnswer = $currentQuestion->answers->firstWhere('is_correct', true);
+        $answerCounts = $currentQuestion->answers->map(fn ($a) => [
+            'answer_id' => $a->id,
+            'count' => $gameSession->responses()->where('question_id', $currentQuestion->id)->where('answer_id', $a->id)->count(),
+        ])->toArray();
+        $leaderboard = $gameSession->leaderboard()->take(10)->map(fn ($p) => [
+            'uuid' => $p->uuid,
+            'nickname' => $p->nickname,
+            'score' => $p->score,
+        ])->values()->toArray();
+
+        event(new QuestionEnded($gameSession->uuid, $correctAnswer->id, $answerCounts, $leaderboard));
+
         if ($isLast) {
             $gameSession->update([
                 'status' => 'completed',
                 'completed_at' => now(),
             ]);
+
+            event(new GameCompleted($gameSession->uuid, $leaderboard));
 
             return response()->json([
                 'status' => 'completed',
@@ -212,10 +264,21 @@ class GameApiController extends Controller
             'question_started_at' => now(),
         ]);
 
+        $nextQuestion = $gameSession->currentQuestion()->load('answers');
+        $nextQuestionData = [
+            'id' => $nextQuestion->id,
+            'body' => $nextQuestion->body,
+            'media' => $nextQuestion->media,
+            'answers' => $nextQuestion->answers->map(fn ($a) => ['id' => $a->id, 'body' => $a->body, 'order' => $a->order])->values()->toArray(),
+        ];
+        $nextIsLast = ($nextIndex + 1) >= $totalQuestions;
+
+        event(new QuestionStarted($gameSession->uuid, $nextIndex, $nextQuestionData, $gameSession->time_per_question, $nextIsLast));
+
         return response()->json([
             'status' => 'in_progress',
             'current_question_index' => $nextIndex,
-            'is_last' => ($nextIndex + 1) >= $totalQuestions,
+            'is_last' => $nextIsLast,
         ]);
     }
 

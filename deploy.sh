@@ -55,8 +55,8 @@ echo ""
 
 # --- Étape 1 : Build des assets ---
 if [ "$SKIP_BUILD" = false ]; then
-    info "Build des assets frontend..."
-    npm run build
+    info "Build des assets frontend (mode production)..."
+    npx vite build --mode production
     ok "Assets buildés dans public/build/"
 else
     warn "Build ignoré (--skip-build)"
@@ -105,6 +105,7 @@ rsync $RSYNC_FLAGS \
     --exclude='database/database.sqlite' \
     --exclude='.idea' \
     --exclude='.vscode' \
+    --exclude='.env.production' \
     "${LOCAL_PATH}" \
     "${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PATH}/"
 
@@ -134,6 +135,9 @@ else
 
         echo "[remote] Redémarrage PHP-FPM..."
         systemctl reload php8.4-fpm
+
+        echo "[remote] Redémarrage Reverb WebSocket..."
+        systemctl restart quizzes-reverb.service 2>/dev/null || echo "[remote] Service Reverb non configuré — ignoré"
 
         echo "[remote] Terminé."
 REMOTE_SCRIPT

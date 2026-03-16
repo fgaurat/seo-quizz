@@ -1,6 +1,7 @@
 import { Head } from '@inertiajs/react';
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { GameSession, GamePlayer, GameState } from '@/types';
+import type { GameSession, GamePlayer } from '@/types';
+import echo from '@/echo';
 
 interface PlayProps {
     gameSession: GameSession;
@@ -20,6 +21,19 @@ type Phase =
     | 'answered'
     | 'reviewing'
     | 'completed';
+
+type QuestionData = {
+    id: number;
+    body: string;
+    media: unknown[] | null;
+    answers: { id: number; body: string; order: number }[];
+};
+
+type LeaderboardEntry = {
+    uuid: string;
+    nickname: string;
+    score: number;
+};
 
 const ANSWER_COLORS = [
     { bg: 'bg-red-500', hover: 'hover:bg-red-600', active: 'active:bg-red-700', label: 'Rouge' },
@@ -100,8 +114,13 @@ function TimerBar({ timeRemainingMs, totalMs }: { timeRemainingMs: number; total
 
 export default function Play({ gameSession, player }: PlayProps) {
     const [phase, setPhase] = useState<Phase>('loading');
-    const [gameState, setGameState] = useState<GameState | null>(null);
+    const [question, setQuestion] = useState<QuestionData | null>(null);
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(-1);
+    const [playersCount, setPlayersCount] = useState<number>(0);
+    const [playersAnsweredCount, setPlayersAnsweredCount] = useState<number>(0);
+    const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+    const [timeRemainingMs, setTimeRemainingMs] = useState<number>(0);
+    const [timePerQuestion, setTimePerQuestion] = useState<number>(gameSession.time_per_question);
     const [answerResult, setAnswerResult] = useState<AnswerResult | null>(null);
     const [selectedAnswerId, setSelectedAnswerId] = useState<number | null>(null);
     const [isSubmittingAnswer, setIsSubmittingAnswer] = useState(false);
@@ -110,7 +129,6 @@ export default function Play({ gameSession, player }: PlayProps) {
     const [leaderboardPosition, setLeaderboardPosition] = useState<number | null>(null);
 
     const playerUuidRef = useRef<string | null>(null);
-    const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const isMountedRef = useRef(true);
 
     // Read player_uuid from sessionStorage on mount
@@ -121,8 +139,22 @@ export default function Play({ gameSession, player }: PlayProps) {
             return;
         }
         playerUuidRef.current = uuid;
-        setPhase('waiting');
-    }, []);
+
+        // If the game is already in progress when the player (re)connects, compute
+        // the elapsed time to seed the local countdown timer correctly.
+        if (gameSession.status === 'in_progress' && gameSession.question_started_at) {
+            const elapsed = Date.now() - new Date(gameSession.question_started_at).getTime();
+            const remaining = Math.max(0, gameSession.time_per_question * 1000 - elapsed);
+            setTimeRemainingMs(remaining);
+            setTimePerQuestion(gameSession.time_per_question);
+            setCurrentQuestionIndex(gameSession.current_question_index);
+            setPhase('playing');
+        } else if (gameSession.status === 'completed') {
+            setPhase('completed');
+        } else {
+            setPhase('waiting');
+        }
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const getCsrfToken = useCallback(() => {
         return decodeURIComponent(
@@ -130,79 +162,89 @@ export default function Play({ gameSession, player }: PlayProps) {
         );
     }, []);
 
-    const fetchGameState = useCallback(async () => {
-        try {
-            const response = await fetch(`/api/game/${gameSession.uuid}/state`, {
-                headers: { Accept: 'application/json' },
-            });
+    // Subscribe to Echo channel events
+    useEffect(() => {
+        if (phase === 'no_session') return;
 
-            if (!response.ok) return;
+        const channel = echo.channel(`game.${gameSession.uuid}`);
 
-            const data: GameState = await response.json();
+        channel.listen('.game.started', () => {
+            // Server will immediately broadcast question.started next
+            setPhase('waiting');
+        });
 
-            if (!isMountedRef.current) return;
-
+        channel.listen('.question.started', (data: {
+            questionIndex: number;
+            question: QuestionData;
+            timePerQuestion: number;
+            isLast: boolean;
+        }) => {
+            setQuestion(data.question);
+            setCurrentQuestionIndex(data.questionIndex);
+            setTimeRemainingMs(data.timePerQuestion * 1000);
+            setTimePerQuestion(data.timePerQuestion);
+            setPlayersAnsweredCount(0);
+            setSelectedAnswerId(null);
+            setAnswerResult(null);
             setNetworkError(null);
-            setGameState(data);
+            setPhase('playing');
+        });
 
-            // Detect question change — reset answered state
-            if (data.current_question_index !== currentQuestionIndex) {
-                setCurrentQuestionIndex(data.current_question_index);
-                setSelectedAnswerId(null);
-                setAnswerResult(null);
-            }
+        channel.listen('.answer.submitted', (data: {
+            playersAnsweredCount: number;
+            playersCount: number;
+        }) => {
+            setPlayersCount(data.playersCount);
+            setPlayersAnsweredCount(data.playersAnsweredCount);
+        });
 
-            // Update leaderboard position
-            const position = data.leaderboard.findIndex((p) => p.uuid === playerUuidRef.current);
+        channel.listen('.question.ended', (data: {
+            correctAnswerId: number;
+            leaderboard: LeaderboardEntry[];
+        }) => {
+            const position = data.leaderboard.findIndex(
+                (p) => p.uuid === playerUuidRef.current,
+            );
             if (position !== -1) {
                 setLeaderboardPosition(position + 1);
                 setPlayerScore(data.leaderboard[position].score);
             }
+            setLeaderboard(data.leaderboard);
+            setPhase('reviewing');
+        });
 
-            // Map API status to local phase
-            if (data.status === 'completed') {
-                setPhase('completed');
-            } else if (data.status === 'waiting') {
-                setPhase('waiting');
-            } else if (data.status === 'reviewing') {
-                // Between questions — only if not already answered (show score update)
-                if (selectedAnswerId !== null || answerResult !== null) {
-                    setPhase('reviewing');
-                } else {
-                    setPhase('reviewing');
-                }
-            } else if (data.status === 'in_progress') {
-                if (selectedAnswerId !== null) {
-                    setPhase('answered');
-                } else {
-                    setPhase('playing');
-                }
+        channel.listen('.game.completed', (data: { leaderboard: LeaderboardEntry[] }) => {
+            const position = data.leaderboard.findIndex(
+                (p) => p.uuid === playerUuidRef.current,
+            );
+            if (position !== -1) {
+                setLeaderboardPosition(position + 1);
+                setPlayerScore(data.leaderboard[position].score);
             }
-        } catch {
-            if (isMountedRef.current) {
-                setNetworkError('Connexion perdue. Tentative de reconnexion...');
-            }
-        }
-    }, [gameSession.uuid, currentQuestionIndex, selectedAnswerId, answerResult]);
-
-    // Start/stop polling
-    useEffect(() => {
-        if (phase === 'no_session') return;
-
-        fetchGameState();
-
-        pollIntervalRef.current = setInterval(fetchGameState, 1000);
+            setLeaderboard(data.leaderboard);
+            setPhase('completed');
+        });
 
         return () => {
-            if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+            echo.leaveChannel(`game.${gameSession.uuid}`);
         };
-    }, [phase === 'no_session', fetchGameState]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [gameSession.uuid, phase === 'no_session']); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Local countdown timer — ticks every 100 ms while in playing phase
+    useEffect(() => {
+        if (phase !== 'playing') return;
+
+        const interval = setInterval(() => {
+            setTimeRemainingMs((prev) => Math.max(0, prev - 100));
+        }, 100);
+
+        return () => clearInterval(interval);
+    }, [phase]);
 
     useEffect(() => {
         isMountedRef.current = true;
         return () => {
             isMountedRef.current = false;
-            if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
         };
     }, []);
 
@@ -330,9 +372,9 @@ export default function Play({ gameSession, player }: PlayProps) {
                         </div>
 
                         {/* Players count */}
-                        {gameState && (
+                        {playersCount > 0 && (
                             <p className="text-white/60 text-sm font-medium">
-                                {gameState.players_count} joueur{gameState.players_count > 1 ? 's' : ''} connecté{gameState.players_count > 1 ? 's' : ''}
+                                {playersCount} joueur{playersCount > 1 ? 's' : ''} connecté{playersCount > 1 ? 's' : ''}
                             </p>
                         )}
 
@@ -348,26 +390,26 @@ export default function Play({ gameSession, player }: PlayProps) {
                 )}
 
                 {/* Playing state */}
-                {phase === 'playing' && gameState?.question && (
+                {phase === 'playing' && question && (
                     <div className="flex-1 flex flex-col">
                         <TimerBar
-                            timeRemainingMs={gameState.time_remaining_ms}
-                            totalMs={gameSession.time_per_question * 1000}
+                            timeRemainingMs={timeRemainingMs}
+                            totalMs={timePerQuestion * 1000}
                         />
 
                         {/* Progress indicator */}
                         <div className="px-4 pb-3 flex items-center justify-between">
                             <span className="text-white/70 text-sm font-semibold">
-                                Question {gameState.current_question_index + 1}
+                                Question {currentQuestionIndex + 1}
                             </span>
                             <span className="text-white/70 text-sm font-semibold">
-                                {gameState.players_answered_count}/{gameState.players_count} ont répondu
+                                {playersAnsweredCount}/{playersCount} ont répondu
                             </span>
                         </div>
 
                         {/* Answer buttons grid */}
                         <div className="flex-1 grid grid-cols-2 gap-3 p-4 pb-6">
-                            {gameState.question.answers.slice(0, 4).map((answer, index) => {
+                            {question.answers.slice(0, 4).map((answer, index) => {
                                 const color = ANSWER_COLORS[index % ANSWER_COLORS.length];
                                 const shape = ANSWER_SHAPES[index % ANSWER_SHAPES.length];
 
@@ -499,13 +541,13 @@ export default function Play({ gameSession, player }: PlayProps) {
                         </div>
 
                         {/* Mini leaderboard */}
-                        {gameState?.leaderboard && gameState.leaderboard.length > 0 && (
+                        {leaderboard.length > 0 && (
                             <div className="w-full max-w-xs">
                                 <p className="text-white/70 text-xs font-semibold uppercase tracking-widest mb-3 text-center">
                                     Top joueurs
                                 </p>
                                 <ol className="flex flex-col gap-2">
-                                    {gameState.leaderboard.slice(0, 3).map((p, i) => {
+                                    {leaderboard.slice(0, 3).map((p, i) => {
                                         const isCurrentPlayer = p.uuid === playerUuidRef.current;
                                         return (
                                             <li
@@ -590,13 +632,13 @@ export default function Play({ gameSession, player }: PlayProps) {
                         </div>
 
                         {/* Full leaderboard */}
-                        {gameState?.leaderboard && gameState.leaderboard.length > 0 && (
+                        {leaderboard.length > 0 && (
                             <div className="w-full max-w-xs">
                                 <p className="text-white/70 text-xs font-semibold uppercase tracking-widest mb-3 text-center">
                                     Classement final
                                 </p>
                                 <ol className="flex flex-col gap-2">
-                                    {gameState.leaderboard.slice(0, 5).map((p, i) => {
+                                    {leaderboard.slice(0, 5).map((p, i) => {
                                         const isCurrentPlayer = p.uuid === playerUuidRef.current;
                                         const medals = ['🥇', '🥈', '🥉'];
                                         return (

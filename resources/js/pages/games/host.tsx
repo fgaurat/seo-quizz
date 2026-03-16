@@ -1,16 +1,27 @@
 import { Head, router } from '@inertiajs/react';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ChevronRight, Trophy, Clock, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
-import type { BreadcrumbItem, GameSession, GamePlayer, GameState, Question } from '@/types';
+import echo from '@/echo';
+import type { BreadcrumbItem, GameSession, GamePlayer, GameSessionStatus, Question } from '@/types';
 
 interface HostProps {
     gameSession: GameSession;
     currentQuestion: Question | null;
     leaderboard: GamePlayer[];
 }
+
+type AnswerCount = { answer_id: number; count: number };
+type LeaderboardEntry = { uuid: string; nickname: string; score: number };
+
+type QuestionStartedQuestion = {
+    id: number;
+    body: string;
+    media: Question['media'];
+    answers: { id: number; body: string; order: number }[];
+};
 
 const ANSWER_COLORS = [
     { bg: 'bg-red-500', hover: 'hover:bg-red-600', border: 'border-red-600', text: 'text-white', label: 'A' },
@@ -25,15 +36,56 @@ function getCsrfToken(): string {
     return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '';
 }
 
+/** Compute initial time remaining in ms from a question_started_at timestamp and time_per_question (seconds). */
+function computeInitialTimeRemaining(questionStartedAt: string | null, timePerQuestion: number): number {
+    if (!questionStartedAt) return timePerQuestion * 1000;
+    const elapsedMs = Date.now() - new Date(questionStartedAt).getTime();
+    return Math.max(0, timePerQuestion * 1000 - elapsedMs);
+}
+
 export default function Host({ gameSession, currentQuestion: initialQuestion, leaderboard: initialLeaderboard }: HostProps) {
-    const [gameState, setGameState] = useState<GameState | null>(null);
+    const [status, setStatus] = useState<GameSessionStatus>(gameSession.status);
+    const [currentIndex, setCurrentIndex] = useState(gameSession.current_question_index);
+    const [isLastQuestion, setIsLastQuestion] = useState(false);
+
+    // Active question — starts from Inertia prop, updated on question.started events
+    const [activeQuestion, setActiveQuestion] = useState<QuestionStartedQuestion | null>(
+        initialQuestion
+            ? {
+                id: initialQuestion.id,
+                body: initialQuestion.body,
+                media: initialQuestion.media,
+                answers: initialQuestion.answers.map(a => ({ id: a.id, body: a.body, order: a.order })),
+            }
+            : null,
+    );
+
+    // Players state — updated on answer.submitted events
+    const [playersCount, setPlayersCount] = useState(gameSession.players?.length ?? 0);
+    const [playersAnsweredCount, setPlayersAnsweredCount] = useState(0);
+
+    // Leaderboard — updated on question.ended events
+    const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>(
+        initialLeaderboard.map(p => ({ uuid: p.uuid, nickname: p.nickname, score: p.score })),
+    );
+
+    // Correct answer reveal — updated on question.ended events
+    const [correctAnswerId, setCorrectAnswerId] = useState<number | null>(null);
+    const [answerCounts, setAnswerCounts] = useState<AnswerCount[]>([]);
+
+    // Phase-over flag — set by question.ended event; reset on question.started
+    const [isQuestionPhaseOver, setIsQuestionPhaseOver] = useState(false);
+
+    // Countdown timer in ms
+    const [timeRemainingMs, setTimeRemainingMs] = useState(() =>
+        gameSession.status === 'in_progress'
+            ? computeInitialTimeRemaining(gameSession.question_started_at, gameSession.time_per_question)
+            : 0,
+    );
+
     const [isAdvancing, setIsAdvancing] = useState(false);
-    const [fetchError, setFetchError] = useState<string | null>(null);
-    const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
-    const hasDoneCompletedRedirect = useRef(false);
 
     const totalQuestions = gameSession.quiz?.questions?.length ?? 0;
-    const currentIndex = gameState?.current_question_index ?? gameSession.current_question_index;
     const questionNumber = currentIndex + 1;
 
     const breadcrumbs: BreadcrumbItem[] = [
@@ -42,80 +94,98 @@ export default function Host({ gameSession, currentQuestion: initialQuestion, le
         { title: 'Partie en cours', href: '#' },
     ];
 
-    // Derived state from polling
-    const status = gameState?.status ?? gameSession.status;
-    const timeRemainingMs = gameState?.time_remaining_ms ?? 0;
-    const timeTotalMs = gameSession.time_per_question * 1000;
-    const timerPercent = timeTotalMs > 0 ? Math.min(100, Math.max(0, (timeRemainingMs / timeTotalMs) * 100)) : 0;
-    const playersCount = gameState?.players_count ?? (gameSession.players?.length ?? 0);
-    const playersAnsweredCount = gameState?.players_answered_count ?? 0;
+    // Echo channel subscriptions
+    useEffect(() => {
+        const channel = echo.channel(`game.${gameSession.uuid}`);
 
-    // Decide whether to reveal correct answers:
-    // reveal when timer <= 0 OR all players have answered, AND we have a question active
-    const isQuestionPhaseOver = status === 'reviewing' || (timeRemainingMs <= 0 && status === 'in_progress') || (playersAnsweredCount >= playersCount && playersCount > 0 && status === 'in_progress');
-    const shouldRevealAnswers = isQuestionPhaseOver;
+        channel.listen('.answer.submitted', (data: { playersAnsweredCount: number; playersCount: number }) => {
+            setPlayersAnsweredCount(data.playersAnsweredCount);
+            setPlayersCount(data.playersCount);
+        });
 
-    // Merge leaderboard: prefer polled data, fall back to prop
-    const leaderboard = gameState?.leaderboard ?? initialLeaderboard.map(p => ({ uuid: p.uuid, nickname: p.nickname, score: p.score }));
+        channel.listen('.question.ended', (data: { correctAnswerId: number; answerCounts: AnswerCount[]; leaderboard: LeaderboardEntry[] }) => {
+            setCorrectAnswerId(data.correctAnswerId);
+            setAnswerCounts(data.answerCounts);
+            setLeaderboard(data.leaderboard);
+            setIsQuestionPhaseOver(true);
+            setStatus('reviewing');
+        });
 
-    // Active question from state or prop
-    const activeQuestion = gameState?.question
-        ? {
-            id: gameState.question.id,
-            body: gameState.question.body,
-            media: gameState.question.media,
-            answers: gameState.question.answers.map(a => ({
-                id: a.id,
-                body: a.body,
-                order: a.order,
-                // is_correct is NOT in GameState.question.answers by design (hidden from players)
-                // We get it from the initial question prop when revealing
-            })),
-        }
-        : initialQuestion;
+        channel.listen('.question.started', (data: { questionIndex: number; question: QuestionStartedQuestion; timePerQuestion: number; isLast: boolean }) => {
+            setActiveQuestion(data.question);
+            setCurrentIndex(data.questionIndex);
+            setTimeRemainingMs(data.timePerQuestion * 1000);
+            setIsQuestionPhaseOver(false);
+            setCorrectAnswerId(null);
+            setAnswerCounts([]);
+            setPlayersAnsweredCount(0);
+            setIsLastQuestion(data.isLast);
+            setStatus('in_progress');
+        });
 
-    // Map of answer id -> is_correct from the initial prop (available post-reveal)
-    const correctAnswerIds = new Set(
-        (initialQuestion?.answers ?? []).filter(a => a.is_correct).map(a => a.id)
-    );
+        channel.listen('.game.completed', () => {
+            setStatus('completed');
+            router.visit(`/games/${gameSession.uuid}/results`);
+        });
 
-    // Response counts per answer id from leaderboard perspective not available in GameState,
-    // but we can infer from players_answered_count. Backend doesn't expose per-answer counts
-    // in GameState, so we track locally what we can — just show "X ont répondu" totals.
-
-    const pollState = useCallback(async () => {
-        try {
-            const res = await fetch(`/api/game/${gameSession.uuid}/state`, {
-                headers: { 'Accept': 'application/json' },
-            });
-            if (!res.ok) return;
-            const data: GameState = await res.json();
-            setGameState(data);
-            setFetchError(null);
-
-            if (data.status === 'completed' && !hasDoneCompletedRedirect.current) {
-                hasDoneCompletedRedirect.current = true;
-                router.visit(`/games/${gameSession.uuid}/results`);
-            }
-        } catch {
-            setFetchError('Impossible de récupérer l\'état de la partie.');
-        }
+        return () => {
+            echo.leaveChannel(`game.${gameSession.uuid}`);
+        };
     }, [gameSession.uuid]);
 
+    // Countdown timer: decrements every 100ms when a question is active and not yet over
+    const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
     useEffect(() => {
-        // Poll immediately, then every second
-        pollState();
-        pollingRef.current = setInterval(pollState, 1000);
+        if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+        }
+
+        if (status === 'in_progress' && !isQuestionPhaseOver && timeRemainingMs > 0) {
+            timerRef.current = setInterval(() => {
+                setTimeRemainingMs(prev => {
+                    const next = prev - 100;
+                    if (next <= 0) {
+                        if (timerRef.current) {
+                            clearInterval(timerRef.current);
+                            timerRef.current = null;
+                        }
+                        return 0;
+                    }
+                    return next;
+                });
+            }, 100);
+        }
+
         return () => {
-            if (pollingRef.current) clearInterval(pollingRef.current);
+            if (timerRef.current) {
+                clearInterval(timerRef.current);
+                timerRef.current = null;
+            }
         };
-    }, [pollState]);
+    }, [status, isQuestionPhaseOver]);
+
+    // Derived display values
+    const timeTotalMs = gameSession.time_per_question * 1000;
+    const timerPercent = timeTotalMs > 0 ? Math.min(100, Math.max(0, (timeRemainingMs / timeTotalMs) * 100)) : 0;
+    const timerColor = timerPercent > 50 ? 'bg-green-500' : timerPercent > 25 ? 'bg-yellow-500' : 'bg-red-500';
+
+    // Reveal answers when the server confirmed phase-over OR timer ran out locally
+    const shouldRevealAnswers = isQuestionPhaseOver || timeRemainingMs <= 0;
+
+    // Correct answer IDs: from question.ended event if available, otherwise fall back to the initial prop
+    const correctAnswerIdsFromEvent = correctAnswerId !== null ? new Set([correctAnswerId]) : null;
+    const correctAnswerIdsFromProp = new Set(
+        (initialQuestion?.answers ?? []).filter(a => a.is_correct).map(a => a.id),
+    );
+    const correctAnswerIds = correctAnswerIdsFromEvent ?? correctAnswerIdsFromProp;
 
     async function handleNextQuestion() {
         if (isAdvancing) return;
         setIsAdvancing(true);
         try {
-            const res = await fetch(`/api/game/${gameSession.uuid}/next`, {
+            await fetch(`/api/game/${gameSession.uuid}/next`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -123,19 +193,13 @@ export default function Host({ gameSession, currentQuestion: initialQuestion, le
                     'X-CSRF-TOKEN': getCsrfToken(),
                 },
             });
-            if (res.ok) {
-                // Poll immediately to get updated state
-                await pollState();
-            }
+            // State will be updated via the .question.started or .game.completed Echo event
         } catch {
-            // ignore, next poll will refresh
+            // ignore — the Echo event will update state if the request succeeds server-side
         } finally {
             setIsAdvancing(false);
         }
     }
-
-    // Compute timer color based on remaining time
-    const timerColor = timerPercent > 50 ? 'bg-green-500' : timerPercent > 25 ? 'bg-yellow-500' : 'bg-red-500';
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -167,9 +231,6 @@ export default function Host({ gameSession, currentQuestion: initialQuestion, le
                                 Question {questionNumber} / {totalQuestions}
                             </span>
                         )}
-                        {fetchError && (
-                            <span className="text-sm text-red-500">{fetchError}</span>
-                        )}
                     </div>
                 </div>
 
@@ -177,7 +238,7 @@ export default function Host({ gameSession, currentQuestion: initialQuestion, le
                 {status === 'in_progress' && (
                     <div className="h-4 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700" role="progressbar" aria-valuenow={Math.ceil(timeRemainingMs / 1000)} aria-valuemax={gameSession.time_per_question} aria-label="Temps restant">
                         <div
-                            className={`h-full rounded-full transition-all duration-1000 ease-linear ${timerColor}`}
+                            className={`h-full rounded-full transition-all duration-100 ease-linear ${timerColor}`}
                             style={{ width: `${timerPercent}%` }}
                         />
                     </div>
@@ -230,6 +291,9 @@ export default function Host({ gameSession, currentQuestion: initialQuestion, le
                                         const showCorrect = shouldRevealAnswers && isCorrect;
                                         const showWrong = shouldRevealAnswers && !isCorrect;
 
+                                        // Answer count for this answer (if available from event)
+                                        const answerCount = answerCounts.find(ac => ac.answer_id === answer.id)?.count ?? 0;
+
                                         return (
                                             <div
                                                 key={answer.id}
@@ -251,6 +315,13 @@ export default function Host({ gameSession, currentQuestion: initialQuestion, le
                                                 {showCorrect && (
                                                     <span className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-white text-green-600 text-lg font-black shadow">
                                                         ✓
+                                                    </span>
+                                                )}
+
+                                                {/* Answer count badge (shown after reveal) */}
+                                                {shouldRevealAnswers && answerCounts.length > 0 && (
+                                                    <span className="absolute bottom-3 right-4 rounded-full bg-black/20 px-2 py-0.5 text-xs font-semibold">
+                                                        {answerCount}
                                                     </span>
                                                 )}
 
@@ -322,7 +393,7 @@ export default function Host({ gameSession, currentQuestion: initialQuestion, le
                                         ) : (
                                             <ChevronRight className="h-5 w-5" />
                                         )}
-                                        {currentIndex + 1 >= totalQuestions ? 'Terminer la partie' : 'Question suivante'}
+                                        {isLastQuestion || currentIndex + 1 >= totalQuestions ? 'Terminer la partie' : 'Question suivante'}
                                     </Button>
                                 </div>
                             </div>

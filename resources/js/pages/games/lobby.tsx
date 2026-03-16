@@ -1,6 +1,7 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Play, Users, ArrowLeft, Wifi } from 'lucide-react';
+import echo from '@/echo';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -73,53 +74,54 @@ export default function GamesLobby({ gameSession }: LobbyProps) {
         { title: 'Salle d\'attente', href: `/games/${gameSession.uuid}/lobby` },
     ];
 
-    const pollState = useCallback(async () => {
-        try {
-            const response = await fetch(`/api/game/${gameSession.uuid}/state`, {
-                headers: { Accept: 'application/json' },
-            });
+    useEffect(() => {
+        const channel = echo.channel(`game.${gameSession.uuid}`);
 
-            if (!response.ok) return;
+        channel.listen(
+            '.player.joined',
+            (data: {
+                player: { uuid: string; nickname: string; score: number; id?: number };
+                playersCount: number;
+            }) => {
+                const playerId = data.player.id ?? Date.now();
 
-            const data = await response.json();
+                setPlayers((prev) => {
+                    // Avoid duplicates
+                    if (prev.some((p) => p.uuid === data.player.uuid)) return prev;
 
-            // If the game has started, redirect the host to the control page
-            if (data.status === 'in_progress' || data.status === 'reviewing') {
-                router.visit(`/games/${gameSession.uuid}/host`);
-                return;
-            }
-
-            if (Array.isArray(data.players)) {
-                const incoming: GamePlayer[] = data.players;
-                const incomingIds = new Set(incoming.map((p: GamePlayer) => p.id));
-
-                // Find newly joined players
-                const freshIds = new Set<number>();
-                incomingIds.forEach((id) => {
-                    if (!knownPlayerIds.has(id)) {
-                        freshIds.add(id);
-                    }
+                    const newPlayer: GamePlayer = {
+                        ...data.player,
+                        id: playerId,
+                        is_connected: true,
+                        avatar: null,
+                        created_at: '',
+                        updated_at: '',
+                        game_session_id: 0,
+                    };
+                    return [...prev, newPlayer];
                 });
 
-                if (freshIds.size > 0) {
-                    setNewPlayerIds(freshIds);
-                    setKnownPlayerIds(incomingIds);
+                // Mark as new for the entry animation, then clear after it completes
+                setKnownPlayerIds((prev) => new Set([...prev, playerId]));
+                setNewPlayerIds((prev) => new Set([...prev, playerId]));
+                setTimeout(() => {
+                    setNewPlayerIds((prev) => {
+                        const next = new Set(prev);
+                        next.delete(playerId);
+                        return next;
+                    });
+                }, 600);
+            },
+        );
 
-                    // Clear the "new" highlight after the animation completes
-                    setTimeout(() => setNewPlayerIds(new Set()), 600);
-                }
+        channel.listen('.game.started', () => {
+            router.visit(`/games/${gameSession.uuid}/host`);
+        });
 
-                setPlayers(incoming);
-            }
-        } catch {
-            // Silently ignore transient network errors during polling
-        }
-    }, [gameSession.uuid, knownPlayerIds]);
-
-    useEffect(() => {
-        const intervalId = setInterval(pollState, 2000);
-        return () => clearInterval(intervalId);
-    }, [pollState]);
+        return () => {
+            echo.leaveChannel(`game.${gameSession.uuid}`);
+        };
+    }, [gameSession.uuid]);
 
     const handleStart = async () => {
         if (players.length < 1 || isStarting) return;
